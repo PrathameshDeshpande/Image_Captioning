@@ -42,11 +42,7 @@ def clean_description(desc):
 
 
 # function to create vocabulary
-def create_vocab(des):
-    all_train_caption = []
-    for k, v in des.items():
-        for cap in v:
-            all_train_caption.append(cap)
+def create_vocab(all_train_caption):
     # considering only words that occur more frequently
     word_count_threshold = 10
     word_count = {}
@@ -75,21 +71,32 @@ def save_descriptions(descriptions, filename):
 
 # Function to load clean descriptions into memory
 def load_clean_descriptions(filename, dataset):
-    # load document
+    # Lets load file
     doc = load_doc(filename)
     descriptions = dict()
     for line in doc.split('\n'):
-        # split line by white space
         tokens = line.split()
-        # split id from description
         image_id, image_desc = tokens[0], tokens[1:]
-        # skip images not in the set
         if image_id in dataset:
             # create list
             if image_id not in descriptions:
                 descriptions[image_id] = list()
-            # wrap description in tokens
+            # Getting desc in a format suitable for prediction
             desc = 'startseq ' + ' '.join(image_desc) + ' endseq'
-            # store
             descriptions[image_id].append(desc)
     return descriptions
+
+
+# List of all the description
+def to_lines(desciptions):
+    all_desc = list()
+    for k in desciptions.keys():
+        [all_desc.append(s) for s in desciptions[k]]
+    return all_desc
+
+
+# Function to calculate maximum sequence length
+def max_length(description):
+    l = to_lines(description)
+    return max(len(d.split()) for d in l)
+
