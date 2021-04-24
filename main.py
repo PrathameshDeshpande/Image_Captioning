@@ -12,6 +12,7 @@ from time import time
 import glob
 from tensorflow.keras.layers import LSTM, Embedding, TimeDistributed, Dense, RepeatVector,\
                          Activation, Flatten, Reshape, concatenate, Dropout, BatchNormalization
+from tensorflow import keras
 from tensorflow.keras.layers import concatenate
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, RMSprop
@@ -198,6 +199,7 @@ model.layers[2].trainable = False
 # Now we are ready to compile the model
 model.compile(loss="categorical_crossentropy",optimizer="adam")
 
+
 epochs = 20
 number_of_pics_per_batch = 3
 steps = len(train_descriptions)//number_of_pics_per_batch
@@ -205,13 +207,15 @@ steps = len(train_descriptions)//number_of_pics_per_batch
 for i in range(epochs):
     # Lets call generator to load images
     generator = data_generator(train_descriptions,train_features,wordtoix,max_length,number_of_pics_per_batch,vocab_size)
-    # Now lets fit it into model
+    # Now lets fit it into modelfrom tensorflow import keras
     model.fit(generator,epochs=1,steps_per_epoch=steps,verbose=1)
     # Lets save weights after every epoch to keep track
     model.save("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_" + str(i) + ".h5")
 
+
+
 # Now lets run our model on lower learning rate and higher batch size
-model.optimize.lr = 0.0001
+model.optimizer.lr = 0.0001
 epochs = 10
 number_of_pics_per_batch = 6
 steps = len(train_descriptions)//number_of_pics_per_batch
@@ -227,10 +231,10 @@ model.save_weights('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_
 
 
 # Lets load the weights for testing
-model.load_weights('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_30.h5')
+model= tf.keras.models.load_model('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_19.h5')
 
 #Lets test it out
-images = "/home/prathamesh/Desktop/ML_Projects/Image_Captioning/flickr_data/Flickr_Data/Images"
+images = "/home/prathamesh/Desktop/ML_Projects/Image_Captioning/flickr_data/Flickr_Data/Images/"
 with open("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/encoded_test_images.pkl","rb") as encoded_pickel:
     encoding_test = load(encoded_pickel)
 
@@ -252,7 +256,7 @@ def greedySearch(photo):
     return final
 
 
-ap=1
+ap=7
 pic = list(encoding_test.keys())[ap]
 image = encoding_test[pic].reshape((1,2048))
 x=plt.imread(images+pic)
