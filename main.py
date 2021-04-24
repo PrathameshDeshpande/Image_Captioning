@@ -1,25 +1,4 @@
-import pickle
-import pandas as pd  # You know the usual stuffs
-import numpy as np
-import matplotlib.pyplot as plt
-import keras
-from tensorflow.keras.applications.inception_v3 import InceptionV3
-from tensorflow.keras.models import Model
-from modules import load_description, clean_description, create_vocab, load_doc, save_descriptions,load_clean_descriptions,max_length
-from image_preprocessing import preprocess, load_set, data_generator
-from pickle import dump, load
-from time import time
-import glob
-from tensorflow.keras.layers import LSTM, Embedding, TimeDistributed, Dense, RepeatVector,\
-                         Activation, Flatten, Reshape, concatenate, Dropout, BatchNormalization
-from tensorflow import keras
-from tensorflow.keras.layers import concatenate
-import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, RMSprop
-from tensorflow.keras import Input, layers
-from tensorflow.keras import optimizers
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.layers import Add
+from imports import *
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 if len(physical_devices) > 0:
    tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -139,128 +118,136 @@ print(f"The vocab size is {vocab_size}")
 max_length = max_length(train_descriptions)
 print(f"Maximum length in the series {max_length}")
 
-glove_file = "/home/prathamesh/Desktop/ML_Projects/Image_Captioning/glove.6B.200d.txt"
-# Empty embedding dict
-embeddings_index = {}
-f = open(glove_file, encoding="utf-8")
-for line in f:
-    values = line.split()
-    word = values[0]
-    coefs = np.asarray(values[1:], dtype='float32')
-    embeddings_index[word] = coefs
-f.close()
-
-print(f'Found {len(embeddings_index)} word vectors.')
-
-# Inorder to match index woth word
+# Inorder to match index with word
 vocab_size = vocab_size+1
 
-# Now lets get embedding matrix for our vocab
-embedding_dim = 200
-# Lets create a vectors of zeros for our embedding matrix
-embedding_matrix = np.zeros((vocab_size, embedding_dim))
-for word,i in wordtoix.items():
-    embedding_vector = embeddings_index.get(word)
-    # Check if the word is in glove or not
-    if embedding_vector is not None:
-        # Chance index i of embedding matrix to the vector from glove
-        embedding_matrix[i] = embedding_vector
-
-# Lets check the dimensions of the matrix
-print(f'Shape of embedding_matrix is : {embedding_matrix.shape}')
+# Now get it all only when running main file hence we can import global variable in different script
+if __name__ == '__main__':
 
 
-# Lets build DL Model from the above vectors
-# First input layer for image vector
-input1 = Input(shape=(2048,))
-dp1 = Dropout(0.4)(input1)
-layer1 = Dense(256,activation="relu")(dp1)
+    glove_file = "/home/prathamesh/Desktop/ML_Projects/Image_Captioning/glove.6B.200d.txt"
+    # Empty embedding dict
+    embeddings_index = {}
+    f = open(glove_file, encoding="utf-8")
+    for line in f:
+        values = line.split()
+        word = values[0]
+        coefs = np.asarray(values[1:], dtype='float32')
+        embeddings_index[word] = coefs
+    f.close()
 
-# Second input for partial captions
-input2= Input((max_length,))
-emb = Embedding(vocab_size,embedding_dim,mask_zero=True)(input2)
-dp1 = Dropout(0.4)(emb)
-layer_s1 = LSTM(256)(dp1)
+    print(f'Found {len(embeddings_index)} word vectors.')
 
-# Lets add both input layers together
-d1 = Add()([layer1,layer_s1])
-d2 = Dense(256,activation='relu')(d1)
-output = Dense(vocab_size,activation="softmax")(d2)
-model = Model(inputs = [input1, input2],outputs= output)
+    # Inorder to match index with word
+    vocab_size = vocab_size + 1
 
-model.summary()
+    # Now lets get embedding matrix for our vocab
+    embedding_dim = 200
+    # Lets create a vectors of zeros for our embedding matrix
+    embedding_matrix = np.zeros((vocab_size, embedding_dim))
+    for word, i in wordtoix.items():
+        embedding_vector = embeddings_index.get(word)
+        # Check if the word is in glove or not
+        if embedding_vector is not None:
+            # Chance index i of embedding matrix to the vector from glove
+            embedding_matrix[i] = embedding_vector
 
+    # Lets check the dimensions of the matrix
+    print(f'Shape of embedding_matrix is : {embedding_matrix.shape}')
+    # Lets build DL Model from the above vectors
+    # First input layer for image vector
+    input1 = Input(shape=(2048,))
+    dp1 = Dropout(0.4)(input1)
+    layer1 = Dense(256,activation="relu")(dp1)
 
-# Lets put the weights for embedding layer that is layer 2 in out model
-print(model.layers[2])
-model.layers[2].set_weights([embedding_matrix])
-model.layers[2].trainable = False
+    # Second input for partial captions
+    input2= Input((max_length,))
+    emb = Embedding(vocab_size,embedding_dim,mask_zero=True)(input2)
+    dp1 = Dropout(0.4)(emb)
+    layer_s1 = LSTM(256)(dp1)
 
-# Now we are ready to compile the model
-model.compile(loss="categorical_crossentropy",optimizer="adam")
+    # Lets add both input layers together
+    d1 = Add()([layer1,layer_s1])
+    d2 = Dense(512,activation='relu')(d1)
+    output = Dense(vocab_size,activation="softmax")(d2)
+    model = Model(inputs = [input1, input2],outputs= output)
 
-
-epochs = 20
-number_of_pics_per_batch = 3
-steps = len(train_descriptions)//number_of_pics_per_batch
-
-for i in range(epochs):
-    # Lets call generator to load images
-    generator = data_generator(train_descriptions,train_features,wordtoix,max_length,number_of_pics_per_batch,vocab_size)
-    # Now lets fit it into modelfrom tensorflow import keras
-    model.fit(generator,epochs=1,steps_per_epoch=steps,verbose=1)
-    # Lets save weights after every epoch to keep track
-    model.save("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_" + str(i) + ".h5")
-
-
-
-# Now lets run our model on lower learning rate and higher batch size
-model.optimizer.lr = 0.0001
-epochs = 10
-number_of_pics_per_batch = 6
-steps = len(train_descriptions)//number_of_pics_per_batch
-
-# Now lets loop again for 10 epochs
-for i in range(epochs):
-    generator = data_generator(train_descriptions, train_features, wordtoix, max_length, number_of_pics_per_batch,
-                               vocab_size)
-    model.fit(generator, epochs=1, steps_per_epoch=steps, verbose=1)
-
-# Lets save the final weights
-model.save_weights('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_30.h5')
+    model.summary()
 
 
-# Lets load the weights for testing
-model= tf.keras.models.load_model('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_19.h5')
+    # Lets put the weights for embedding layer that is layer 2 in out model
+    print(model.layers[2])
+    model.layers[2].set_weights([embedding_matrix])
+    model.layers[2].trainable = False
 
-#Lets test it out
-images = "/home/prathamesh/Desktop/ML_Projects/Image_Captioning/flickr_data/Flickr_Data/Images/"
-with open("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/encoded_test_images.pkl","rb") as encoded_pickel:
-    encoding_test = load(encoded_pickel)
-
-# Function for maximum likelihood algo
-def greedySearch(photo):
-    in_text = 'startseq'
-    for i in range(max_length):
-        sequence = [wordtoix[w] for w in in_text.split() if w in wordtoix]
-        sequence = pad_sequences([sequence], maxlen=max_length)
-        yhat = model.predict([photo,sequence], verbose=0)
-        yhat = np.argmax(yhat)
-        word = ixtoword[yhat]
-        in_text += ' ' + word
-        if word == 'endseq':
-            break
-    final = in_text.split()
-    final = final[1:-1]
-    final = ' '.join(final)
-    return final
+    # Now we are ready to compile the model
+    model.compile(loss="categorical_crossentropy",optimizer="adam")
 
 
-ap=7
-pic = list(encoding_test.keys())[ap]
-image = encoding_test[pic].reshape((1,2048))
-x=plt.imread(images+pic)
-plt.imshow(x)
-plt.show()
-print("Greedy:",greedySearch(image))
+    epochs = 20
+    number_of_pics_per_batch = 3
+    steps = len(train_descriptions)//number_of_pics_per_batch
 
+    for i in range(epochs):
+        # Lets call generator to load images
+        generator = data_generator(train_descriptions,train_features,wordtoix,max_length,number_of_pics_per_batch,vocab_size)
+        # Now lets fit it into modelfrom tensorflow import keras
+        model.fit(generator,epochs=1,steps_per_epoch=steps,verbose=1)
+        # Lets save weights after every epoch to keep track
+        model.save("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_" + str(i) + ".h5")
+
+
+
+    # Now lets run our model on lower learning rate and higher batch size
+    model.optimizer.lr = 0.0001
+    epochs = 10
+    number_of_pics_per_batch = 6
+    steps = len(train_descriptions)//number_of_pics_per_batch
+
+    # Now lets loop again for 10 epochs
+    for i in range(epochs):
+        generator = data_generator(train_descriptions, train_features, wordtoix, max_length, number_of_pics_per_batch,
+                                   vocab_size)
+        model.fit(generator, epochs=1, steps_per_epoch=steps, verbose=1)
+        model.save("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_" + str(i+20) + ".h5")
+
+    # Lets save the final weights
+    model.save_weights('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_30.h5')
+
+    '''
+    
+    # Lets load the weights for testing
+    model= tf.keras.models.load_model('/home/prathamesh/Desktop/ML_Projects/Image_Captioning/model_weights/model_19.h5')
+    
+    #Lets test it out
+    images = "/home/prathamesh/Desktop/ML_Projects/Image_Captioning/flickr_data/Flickr_Data/Images/"
+    with open("/home/prathamesh/Desktop/ML_Projects/Image_Captioning/encoded_test_images.pkl","rb") as encoded_pickel:
+        encoding_test = load(encoded_pickel)
+    
+    # Function for maximum likelihood algo
+    def greedySearch(photo):
+        in_text = 'startseq'
+        for i in range(max_length):
+            sequence = [wordtoix[w] for w in in_text.split() if w in wordtoix]
+            sequence = pad_sequences([sequence], maxlen=max_length)
+            yhat = model.predict([photo,sequence], verbose=0)
+            yhat = np.argmax(yhat)
+            word = ixtoword[yhat]
+            in_text += ' ' + word
+            if word == 'endseq':
+                break
+        final = in_text.split()
+        final = final[1:-1]
+        final = ' '.join(final)
+        return final
+    
+    
+    ap=7
+    pic = list(encoding_test.keys())[ap]
+    image = encoding_test[pic].reshape((1,2048))
+    x=plt.imread(images+pic)
+    plt.imshow(x)
+    plt.show()
+    print("Greedy:",greedySearch(image))
+    
+    '''
