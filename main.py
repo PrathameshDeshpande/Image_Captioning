@@ -225,7 +225,7 @@ if __name__ == '__main__':
         encoding_test = load(encoded_pickel)
     
     # Function for maximum likelihood algo
-    def greedySearch(photo):
+    def maximum_likelihood_estimation(photo):
         in_text = 'startseq'
         for i in range(max_length):
             sequence = [wordtoix[w] for w in in_text.split() if w in wordtoix]
