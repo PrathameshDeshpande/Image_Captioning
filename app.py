@@ -62,3 +62,5 @@ if uploaded_file is not None:
     # 600 555 377 780 666 677 955 977
     x = maximum_likelihood_estimation(image)
     st.write("👉 The caption generated:", x)
+
+
